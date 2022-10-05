@@ -1,0 +1,13 @@
+name: test-workflow
+run-name: test-workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  print-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: prints test out
+        run: echo Test
