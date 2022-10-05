@@ -4,14 +4,14 @@ steps:
   - step:
     name: deployRepo1
     description: Will deploy QA
-    repo: https://github.com/Sir-Martin-Esq-III/WordleRustClone
-    workflowName: "deploy"
-    workflowArgs: ["env:QA"]
+    repo: multi_repo_orchestration_tool
+    owner: Sir-Martin-Esq-III
+    workflowName: "test"
 
   - step:
     name: deployRepo2
     dependsOn: deployRepo1
     description: Will deploy QA
-    repo: https://github.com/Sir-Martin-Esq-III/WordleRustClone
-    workflowName: "deploy"
-    workflowArgs: ["env:QA"]
+    repo: multi_repo_orchestration_tool
+    owner: Sir-Martin-Esq-III
+    workflowName: "test"

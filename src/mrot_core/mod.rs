@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use github::GithubWorkflow;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::io::Stderr;
+
 pub mod file_io;
 pub mod github;
 
@@ -16,6 +18,7 @@ pub struct OrchestrationYml {
 pub struct OrchestrationStep {
     name: String,
     description: Option<String>,
+    owner: String,
     repo: String,
     workflowName: String,
     workflowArgs: Option<Vec<String>>,
@@ -46,18 +49,22 @@ pub trait Orchestration {
 #[async_trait]
 impl Orchestration for OrchestrationYml {
     async fn run_orchestration_safe(&self) -> Result<(), Stderr> {
-        // Start workflow
-        // poll until workflow is done
-        //move on to next workflow
         println!("Running {}", self.name);
+
+        let client = Client::new();
 
         //FIXME: I shouldn't need to clone this :(
         for step in &self.steps {
-            GithubWorkflow::new(step.name.clone(), step.repo.clone(), false)
-                .run_workflow()
-                .await
-                .unwrap()
-                .poll_workflow();
+            GithubWorkflow::new(
+                step.name.clone(),
+                step.repo.clone(),
+                step.owner.clone(),
+                false,
+            )
+            .run_workflow(&client)
+            .await
+            .unwrap()
+            .poll_workflow();
         }
 
         Ok(())
