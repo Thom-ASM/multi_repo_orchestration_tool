@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use github::GithubWorkflow;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::io::Stderr;
+use std::{io::Stderr, task::Poll};
+
+use self::github::PollResponse;
 
 pub mod file_io;
 pub mod github;
@@ -59,13 +61,17 @@ impl Orchestration for OrchestrationYml {
                 step.workflowName.clone(),
                 step.repo.clone(),
                 step.owner.clone(),
-                false,
             )
             .run_workflow(&client)
             .await
             .unwrap()
             .poll_workflow(&client)
             .await;
+
+            match resp {
+                PollResponse::Success => println!("Successfully ran workflow"),
+                PollResponse::Failure(msg) => eprintln!("{}", msg),
+            }
         }
 
         Ok(())
