@@ -5,6 +5,16 @@ pub struct GithubWorkflow {
     polling: bool,
 }
 
+use reqwest::{Client, StatusCode};
+use serde::Serialize;
+
+use tokio::time::{sleep, Duration};
+
+#[derive(Serialize)]
+struct Body {
+    r#ref: String,
+}
+
 impl GithubWorkflow {
     ///Create a new github workflow struct
     pub fn new(name: String, repo: String, owner: String, polling: bool) -> Self {
@@ -19,25 +29,49 @@ impl GithubWorkflow {
     /// Runs a workflow by running
     pub async fn run_workflow(
         &mut self,
-        httpClient: &reqwest::Client,
+        http_client: &reqwest::Client,
     ) -> Result<&mut Self, reqwest::Error> {
-        let url = format!(
-            "
-            https://api.github.com//repos/{}/{}/actions/workflows/{}/dispatches",
-            self.owner, self.repo, self.name
-        );
-        let res = httpClient.post(url).send().await;
-        //run workflow
         println!("Running workflow {} on repo {} ", self.name, self.repo);
 
-        Ok(self)
+        //Need to create a new request body to include any args we want to pass the workflow
+        let body = Body {
+            r#ref: "master".to_string(),
+        };
+
+        let url = format!(
+            "
+            https://api.github.com/repos/{}/{}/actions/workflows/{}/dispatches",
+            self.owner, self.repo, self.name
+        );
+
+        //TODO: move user-agent in to config file
+        let resp = http_client
+            .post(url)
+            .bearer_auth(std::env::var("GITHUB_PAT_TOKEN").unwrap())
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Sir-Martin-Esq-III")
+            .json(&body)
+            .send()
+            .await;
+
+        match resp {
+            Ok(resp) => {
+                let status = resp.status();
+                println!("{:?}", status);
+                match status {
+                    StatusCode::NO_CONTENT => Ok(self),
+                    _ => panic!(),
+                }
+            }
+            Err(e) => Err(e),
+        }
     }
 
-    pub fn poll_workflow(&mut self) {
+    pub async fn poll_workflow(&mut self, _http_client: &Client) {
+        self.polling = true;
+        println!("POLLING");
         while self.polling {
-            //check if the workflow is done?
-            //if it is break
-            //else thread sleep for 10 seconds
+            sleep(Duration::from_secs(10)).await;
             self.polling = false;
         }
     }

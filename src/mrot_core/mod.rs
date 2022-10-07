@@ -55,8 +55,8 @@ impl Orchestration for OrchestrationYml {
 
         //FIXME: I shouldn't need to clone this :(
         for step in &self.steps {
-            GithubWorkflow::new(
-                step.name.clone(),
+            let resp = GithubWorkflow::new(
+                step.workflowName.clone(),
                 step.repo.clone(),
                 step.owner.clone(),
                 false,
@@ -64,7 +64,8 @@ impl Orchestration for OrchestrationYml {
             .run_workflow(&client)
             .await
             .unwrap()
-            .poll_workflow();
+            .poll_workflow(&client)
+            .await;
         }
 
         Ok(())

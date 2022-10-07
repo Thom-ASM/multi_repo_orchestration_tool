@@ -6,7 +6,7 @@ steps:
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III
-    workflowName: "test"
+    workflowName: 36654496
 
   - step:
     name: deployRepo2
@@ -14,4 +14,4 @@ steps:
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III
-    workflowName: "test"
+    workflowName: 36654496

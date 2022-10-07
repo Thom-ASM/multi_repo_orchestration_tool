@@ -11,3 +11,9 @@ jobs:
     steps:
       - name: prints test out
         run: echo Test
+
+      - name: sleeps for 30 seconds
+        run: sleep 30
+
+      - name: prints test out
+        run: echo Test
