@@ -15,7 +15,7 @@ steps:
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III
-    workflowName: 36654496
+    workflowName: 36915094
 
   - step:
     name: deployRepo3
@@ -25,7 +25,7 @@ steps:
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III
-    workflowName: 36654496
+    workflowName: 36915095
 
   - step:
     name: deployRepo4
@@ -36,21 +36,11 @@ steps:
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III
-    workflowName: 36654496
+    workflowName: 36915096
 
   - step:
     name: deployRepo5
-    dependsOn:
-      - deployRepo1
-      - deployRepo2
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III
-    workflowName: 36654496
-
-  - step:
-    name: deployRepo6
-    description: Will deploy QA
-    repo: multi_repo_orchestration_tool
-    owner: Sir-Martin-Esq-III
-    workflowName: 36654496
+    workflowName: 36915097

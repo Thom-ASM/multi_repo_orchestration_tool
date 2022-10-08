@@ -89,8 +89,11 @@ impl Orchestration for OrchestrationYml {
         //Create a graph
         let mut step_deps_graph = DiGraph::new();
 
-        //Hash map to make the graph vertex generation more efficient
+        // Hash map to make the graph vertex generation more efficient
         // as I wouldn't have to run .position() each iteration
+        // as worst case for finding the position would be O(n+n-1+n-2....n-n)
+        // but now its O(n) to create the hashmap and O(1) to query the key
+        // then also making it O(1) to query the workflow step array
         let mut hm: HashMap<String, usize> = HashMap::with_capacity(self.steps.len());
 
         //adds the value for the hashmap and adds the matching node to the graph

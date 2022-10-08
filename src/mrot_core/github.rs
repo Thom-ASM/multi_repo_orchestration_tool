@@ -122,7 +122,13 @@ impl GithubWorkflow {
                         .await
                         .expect("failed to deserialize workflow response ");
 
-                    println!("{:?}", js.workflow_runs[0].status);
+                    //This workflow has never been run before
+                    // So to give it a fair chance we'll just wait
+                    if js.workflow_runs.len() == 0 {
+                        //TODO: Move this in to the config file
+                        sleep(Duration::from_secs(10)).await;
+                        continue;
+                    }
 
                     //FIXME: this match doesn't seem to be working quite well
                     match js.workflow_runs[0].status {
@@ -138,6 +144,7 @@ impl GithubWorkflow {
                         }
                         _ => {
                             println!("Workflow still in progress waiting 10 seconds to try again");
+                            //FIXME: obviously this isnt correct, please fix
                             return PollResponse::Success;
 
                             tries_left -= 1;
