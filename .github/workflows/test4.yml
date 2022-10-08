@@ -1,0 +1,19 @@
+name: test-workflow4
+run-name: test-workflow4
+
+on:
+  workflow_dispatch:
+
+jobs:
+  print-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: prints test4 out
+        run: echo Test4
+
+      - name: sleeps for 40 seconds
+        run: sleep 40
+
+      - name: prints test4 out
+        run: echo Test4

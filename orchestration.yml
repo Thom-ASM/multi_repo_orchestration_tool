@@ -10,7 +10,46 @@ steps:
 
   - step:
     name: deployRepo2
-    dependsOn: deployRepo1
+    dependsOn:
+      - deployRepo1
+    description: Will deploy QA
+    repo: multi_repo_orchestration_tool
+    owner: Sir-Martin-Esq-III
+    workflowName: 36654496
+
+  - step:
+    name: deployRepo3
+    dependsOn:
+      - deployRepo1
+      - deployRepo2
+    description: Will deploy QA
+    repo: multi_repo_orchestration_tool
+    owner: Sir-Martin-Esq-III
+    workflowName: 36654496
+
+  - step:
+    name: deployRepo4
+    dependsOn:
+      - deployRepo1
+      - deployRepo2
+      - deployRepo3
+    description: Will deploy QA
+    repo: multi_repo_orchestration_tool
+    owner: Sir-Martin-Esq-III
+    workflowName: 36654496
+
+  - step:
+    name: deployRepo5
+    dependsOn:
+      - deployRepo1
+      - deployRepo2
+    description: Will deploy QA
+    repo: multi_repo_orchestration_tool
+    owner: Sir-Martin-Esq-III
+    workflowName: 36654496
+
+  - step:
+    name: deployRepo6
     description: Will deploy QA
     repo: multi_repo_orchestration_tool
     owner: Sir-Martin-Esq-III

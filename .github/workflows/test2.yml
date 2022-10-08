@@ -1,0 +1,19 @@
+name: test-workflow2
+run-name: test-workflow2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  print-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: prints test2 out
+        run: echo Test2
+
+      - name: sleeps for 20 seconds
+        run: sleep 20
+
+      - name: prints test2 out
+        run: echo Test2

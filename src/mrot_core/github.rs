@@ -60,7 +60,7 @@ impl GithubWorkflow {
         &mut self,
         http_client: &reqwest::Client,
     ) -> Result<&mut Self, reqwest::Error> {
-        println!("Running workflow {} on repo {} ", self.name, self.repo);
+        println!("Running workflowID: {} on repo {} ", self.name, self.repo);
 
         //Need to create a new request body to include any args we want to pass the workflow
         let body = Body {
@@ -138,6 +138,8 @@ impl GithubWorkflow {
                         }
                         _ => {
                             println!("Workflow still in progress waiting 10 seconds to try again");
+                            return PollResponse::Success;
+
                             tries_left -= 1;
                             //TODO: Move this in to the config file
                             sleep(Duration::from_secs(10)).await;

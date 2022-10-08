@@ -20,9 +20,18 @@ fn setup() -> OrchestrationYml {
 async fn main() {
     dotenv().ok();
     let orchestrator = setup();
-    println!("{:?}", orchestrator);
-    orchestrator
-        .run_orchestration_safe()
-        .await
-        .expect("failed to run orchestration");
+    let orchestration = orchestrator.generate_orchestrations();
+    match orchestration {
+        Ok(sorted_indices) => {
+            orchestrator
+                .run_orchestration_safe(&sorted_indices)
+                .await
+                .expect("Failed to run orchestration");
+            return ();
+        }
+        Err(e) => {
+            eprintln!("Failed to generate because a cycle was detected at {:?}", e);
+            return ();
+        }
+    }
 }
