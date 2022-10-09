@@ -27,11 +27,11 @@ async fn main() {
                 .run_orchestration_dangerously(&sorted_indices)
                 .await
                 .expect("Failed to run orchestration");
-            return ();
+            
         }
         Err(e) => {
             eprintln!("Failed to generate because a cycle was detected at {:?}", e);
-            return ();
+            
         }
     }
 }

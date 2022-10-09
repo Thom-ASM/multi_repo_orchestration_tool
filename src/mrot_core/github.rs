@@ -127,27 +127,27 @@ impl GithubWorkflow {
                     .expect("failed to deserialize workflow response ");
 
                 match js.workflow_runs[0].status {
-                    GithubWorkflowResponseStatus::success => return PollResponse::Success,
-                    GithubWorkflowResponseStatus::completed => return PollResponse::Success,
+                    GithubWorkflowResponseStatus::success => PollResponse::Success,
+                    GithubWorkflowResponseStatus::completed => PollResponse::Success,
                     GithubWorkflowResponseStatus::failure => {
-                        return PollResponse::Failure(String::from("Workflow failed"));
+                        PollResponse::Failure(String::from("Workflow failed"))
                     }
                     GithubWorkflowResponseStatus::timed_out => {
-                        return PollResponse::Failure(String::from("Workflow timed out"));
+                        PollResponse::Failure(String::from("Workflow timed out"))
                     }
                     GithubWorkflowResponseStatus::cancelled => {
-                        return PollResponse::Failure(String::from("Workflow cancelled"));
+                        PollResponse::Failure(String::from("Workflow cancelled"))
                     }
                     _ => {
-                        return PollResponse::Pending(String::from(
+                        PollResponse::Pending(String::from(
                             "Workflow still in progress waiting 10 seconds to try again",
-                        ));
+                        ))
                     }
                 }
             }
 
             Err(_) => {
-                return PollResponse::Failure(String::from(
+                PollResponse::Failure(String::from(
                     "Error trying to contact github api endpoint",
                 ))
             }
@@ -160,9 +160,9 @@ impl GithubWorkflow {
         match trigger_workflow_resp {
             Ok(_) => loop {
                 let poll_resp = self.poll_workflow(http_client).await;
-                if let PollResponse::Pending(e) = poll_resp {
+                if let PollResponse::Pending(_e) = poll_resp {
                     println!("Workflow {:?} has successfully started!", self.name);
-                    return Ok(&self);
+                    return Ok(self);
                 }
                 println!(
                     "Workflow runner for {:?} is still being created ",
@@ -180,7 +180,7 @@ impl GithubWorkflow {
         while tries >= 0 {
             let poll_resp = self.poll_workflow(http_client).await;
 
-            if let PollResponse::Pending(m) = poll_resp {
+            if let PollResponse::Pending(_m) = poll_resp {
                 println!("Workflow {:?} is still pending...", self.name);
                 //TODO: move the sleep amount to the config file
                 sleep(Duration::from_secs(10)).await;

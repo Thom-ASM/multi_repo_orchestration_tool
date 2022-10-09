@@ -12,7 +12,7 @@ Currently there is no simple setup guide or any CLI (though this is planned), ho
 
 ### Pre-reqs
 - Install [Rust](https://www.rust-lang.org/) and swear allegiance to ferris <img src="https://rustacean.net/assets/rustacean-flat-happy.png" width="50px">
-- Generate a [github PAT token for the program to use](https://)
+- Generate a [github PAT token for the program to use](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
   
 ### Building and running this project
 1. Create an `orchestration.yml` file using [this format](./orchestration.md)
