@@ -1,11 +1,11 @@
 pub struct GithubWorkflow {
     name: String,
+    id: String,
     repo: String,
     owner: String,
 }
 
 use core::panic;
-use std::task::Poll;
 
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -48,19 +48,23 @@ enum GithubWorkflowResponseStatus {
 pub enum PollResponse {
     Success,
     Failure(String),
+    Pending(String),
 }
+
 impl GithubWorkflow {
     ///Create a new github workflow struct
-    pub fn new(name: String, repo: String, owner: String) -> Self {
-        GithubWorkflow { name, owner, repo }
+    pub fn new(name: String, repo: String, owner: String, id: String) -> Self {
+        GithubWorkflow {
+            name,
+            owner,
+            repo,
+            id,
+        }
     }
 
     /// Runs a workflow by running
-    pub async fn run_workflow(
-        &mut self,
-        http_client: &reqwest::Client,
-    ) -> Result<&mut Self, reqwest::Error> {
-        println!("Running workflowID: {} on repo {} ", self.name, self.repo);
+    async fn trigger_workflow(&self, http_client: &reqwest::Client) -> Result<(), reqwest::Error> {
+        println!("Running workflow: {} on repo {} ", self.name, self.repo);
 
         //Need to create a new request body to include any args we want to pass the workflow
         let body = Body {
@@ -70,7 +74,7 @@ impl GithubWorkflow {
         let url = format!(
             "
             https://api.github.com/repos/{}/{}/actions/workflows/{}/dispatches",
-            self.owner, self.repo, self.name
+            self.owner, self.repo, self.id
         );
 
         //TODO: move user-agent in to config file
@@ -88,7 +92,7 @@ impl GithubWorkflow {
                 let status = resp.status();
                 println!("{:?}", status);
                 match status {
-                    StatusCode::NO_CONTENT => Ok(self),
+                    StatusCode::NO_CONTENT => Ok(()),
                     _ => panic!(),
                 }
             }
@@ -96,72 +100,96 @@ impl GithubWorkflow {
         }
     }
 
-    //FIXME: Github takes some time to spin up a action runner, this means
-    // we need to check if we are not comparing against a stale workflow
-    pub async fn poll_workflow(&mut self, http_client: &Client) -> PollResponse {
-        println!("POLLING");
+    async fn poll_workflow(&self, http_client: &Client) -> PollResponse {
+        println!("Polling workflow {:?}...", self.name);
 
-        //TODO: move this in to the config file
-        let mut tries_left = 5;
+        let t = format!(
+            "https://api.github.com/repos/{}/{}/actions/workflows/{}/runs",
+            self.owner, self.repo, self.id
+        );
 
-        while tries_left > 0 {
-            let resp = http_client
-                .get(format!(
-                    "
-                https://api.github.com/repos/{}/{}/actions/workflows/{}/runs",
-                    self.owner, self.repo, self.name
+        println!("{:?}", t);
+
+        let resp = http_client
+            .get(format!(
+                "https://api.github.com/repos/{}/{}/actions/workflows/{}/runs",
+                self.owner, self.repo, self.id
+            ))
+            .header("User-Agent", "Sir-Martin-Esq-III")
+            .send()
+            .await;
+
+        match resp {
+            Ok(resp) => {
+                let js = resp
+                    .json::<GithubWorkflowResponse>()
+                    .await
+                    .expect("failed to deserialize workflow response ");
+
+                match js.workflow_runs[0].status {
+                    GithubWorkflowResponseStatus::success => return PollResponse::Success,
+                    GithubWorkflowResponseStatus::completed => return PollResponse::Success,
+                    GithubWorkflowResponseStatus::failure => {
+                        return PollResponse::Failure(String::from("Workflow failed"));
+                    }
+                    GithubWorkflowResponseStatus::timed_out => {
+                        return PollResponse::Failure(String::from("Workflow timed out"));
+                    }
+                    GithubWorkflowResponseStatus::cancelled => {
+                        return PollResponse::Failure(String::from("Workflow cancelled"));
+                    }
+                    _ => {
+                        return PollResponse::Pending(String::from(
+                            "Workflow still in progress waiting 10 seconds to try again",
+                        ));
+                    }
+                }
+            }
+
+            Err(_) => {
+                return PollResponse::Failure(String::from(
+                    "Error trying to contact github api endpoint",
                 ))
-                .header("User-Agent", "Sir-Martin-Esq-III")
-                .send()
-                .await;
+            }
+        }
+    }
 
-            match resp {
-                Ok(resp) => {
-                    let js = resp
-                        .json::<GithubWorkflowResponse>()
-                        .await
-                        .expect("failed to deserialize workflow response ");
+    pub async fn run_workflow(&self, http_client: &Client) -> Result<&Self, ()> {
+        let trigger_workflow_resp = self.trigger_workflow(http_client).await;
 
-                    //This workflow has never been run before
-                    // So to give it a fair chance we'll just wait
-                    if js.workflow_runs.len() == 0 {
-                        //TODO: Move this in to the config file
-                        sleep(Duration::from_secs(10)).await;
-                        continue;
-                    }
-
-                    //FIXME: this match doesn't seem to be working quite well
-                    match js.workflow_runs[0].status {
-                        GithubWorkflowResponseStatus::success => return PollResponse::Success,
-                        GithubWorkflowResponseStatus::failure => {
-                            return PollResponse::Failure(String::from("Workflow failed"));
-                        }
-                        GithubWorkflowResponseStatus::timed_out => {
-                            return PollResponse::Failure(String::from("Workflow timed out"));
-                        }
-                        GithubWorkflowResponseStatus::cancelled => {
-                            return PollResponse::Failure(String::from("Workflow cancelled"));
-                        }
-                        _ => {
-                            println!("Workflow still in progress waiting 10 seconds to try again");
-                            //FIXME: obviously this isnt correct, please fix
-                            return PollResponse::Success;
-
-                            tries_left -= 1;
-                            //TODO: Move this in to the config file
-                            sleep(Duration::from_secs(10)).await;
-                        }
-                    }
+        match trigger_workflow_resp {
+            Ok(_) => loop {
+                let poll_resp = self.poll_workflow(http_client).await;
+                if let PollResponse::Pending(e) = poll_resp {
+                    println!("Workflow {:?} has successfully started!", self.name);
+                    return Ok(&self);
                 }
+                println!(
+                    "Workflow runner for {:?} is still being created ",
+                    self.name
+                );
+                sleep(Duration::from_secs(2)).await;
+            },
+            Err(_) => todo!(),
+        }
+    }
 
-                Err(_) => {
-                    return PollResponse::Failure(String::from(
-                        "Error trying to contact github api endpoint",
-                    ))
-                }
+    pub async fn poll_workflow_until_complete(&self, http_client: &Client) -> PollResponse {
+        let mut tries = 6;
+
+        while tries >= 0 {
+            let poll_resp = self.poll_workflow(http_client).await;
+
+            if let PollResponse::Pending(m) = poll_resp {
+                println!("Workflow {:?} is still pending...", self.name);
+                //TODO: move the sleep amount to the config file
+                sleep(Duration::from_secs(10)).await;
+                tries -= 1;
+            } else {
+                return poll_resp;
             }
         }
 
-        PollResponse::Failure(String::from("Exceeded tries"))
+        PollResponse::Failure(String::from("Exceeded amount of tries"))
     }
 }

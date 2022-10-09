@@ -26,33 +26,32 @@ pub struct OrchestrationStep {
     description: Option<String>,
     owner: String,
     repo: String,
-    workflowName: String,
-    workflowArgs: Option<Vec<String>>,
-    dependsOn: Option<Vec<String>>,
+    workflow_number: String,
+    workflow_args: Option<Vec<String>>,
+    depends_on: Option<Vec<String>>,
 }
 
 #[async_trait]
 pub trait Orchestration {
-    /// runs the orchestration but checks if all repos and workflows
-    /// are safe to run therefore making it slower
-    async fn run_orchestration_safe(&self, sorted_indices: &Vec<NodeIndex>) -> Result<(), Stderr>;
+    async fn run_orchestration_safely(&self, sorted_indices: &Vec<NodeIndex>)
+        -> Result<(), Stderr>;
 
-    //FIXME: this link to the safe function doesn't actually work..
-    /// runs the orchestration but without the safety checks of
-    /// [run_orchestration_safe]
-    ///
-    ///
-    fn run_orchestration_dangerously(&self) -> Result<(), Stderr>;
+    async fn run_orchestration_dangerously(
+        &self,
+        sorted_indices: &Vec<NodeIndex>,
+    ) -> Result<(), Stderr>;
 
-    /// Generates the orchestrations for the workflows
-    /// This function should create a digraph and then topographically
-    /// sort the workflows
     fn generate_orchestrations(&self) -> Result<Vec<NodeIndex>, Cycle<NodeIndex>>;
 }
 
 #[async_trait]
 impl Orchestration for OrchestrationYml {
-    async fn run_orchestration_safe(&self, sorted_indices: &Vec<NodeIndex>) -> Result<(), Stderr> {
+    /// Runs the orchestration but without the safety checks of
+    /// `run_orchestration_safely`
+    async fn run_orchestration_dangerously(
+        &self,
+        sorted_indices: &Vec<NodeIndex>,
+    ) -> Result<(), Stderr> {
         println!("Running {}", self.name);
 
         let client = Client::new();
@@ -61,30 +60,42 @@ impl Orchestration for OrchestrationYml {
             let current_step = &self.steps[idx.index()];
 
             //FIXME: I shouldn't need to clone this
-            let resp = GithubWorkflow::new(
-                current_step.workflowName.clone(),
+            let new_workflow = GithubWorkflow::new(
+                current_step.name.clone(),
                 current_step.repo.clone(),
                 current_step.owner.clone(),
-            )
-            .run_workflow(&client)
-            .await
-            .unwrap()
-            .poll_workflow(&client)
-            .await;
+                current_step.workflow_number.clone(),
+            );
+
+            let resp = new_workflow
+                .run_workflow(&client)
+                .await
+                .unwrap()
+                .poll_workflow_until_complete(&client)
+                .await;
 
             match resp {
                 PollResponse::Success => println!("Successfully ran workflow"),
                 PollResponse::Failure(msg) => eprintln!("{}", msg),
+                PollResponse::Pending(_) => unreachable!(),
             }
         }
 
         Ok(())
     }
 
-    fn run_orchestration_dangerously(&self) -> Result<(), Stderr> {
+    /// runs the orchestration but checks if all repos and workflows
+    /// are safe to run therefore making it slower
+    async fn run_orchestration_safely(
+        &self,
+        _sorted_indices: &Vec<NodeIndex>,
+    ) -> Result<(), Stderr> {
         unimplemented!()
     }
 
+    /// Generates the orchestrations for the workflows
+    /// This function should create a digraph and then topographically
+    /// sort the workflows
     fn generate_orchestrations(&self) -> Result<Vec<NodeIndex>, Cycle<NodeIndex>> {
         //Create a graph
         let mut step_deps_graph = DiGraph::new();
@@ -104,7 +115,7 @@ impl Orchestration for OrchestrationYml {
 
         //iterate over each step and create an edge between 2 nodes if it exists
         for (idx, val) in self.steps.iter().enumerate() {
-            let current_step_deps = &val.dependsOn;
+            let current_step_deps = &val.depends_on;
             if let Some(deps) = current_step_deps {
                 for dep in deps {
                     let x = NodeIndex::new(*hm.get_key_value(dep).unwrap().1);

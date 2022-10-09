@@ -24,7 +24,7 @@ async fn main() {
     match orchestration {
         Ok(sorted_indices) => {
             orchestrator
-                .run_orchestration_safe(&sorted_indices)
+                .run_orchestration_dangerously(&sorted_indices)
                 .await
                 .expect("Failed to run orchestration");
             return ();
