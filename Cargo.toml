@@ -14,3 +14,5 @@ async-trait = "0.1.57"
 tokio = { version = "1", features = ["full"] }
 dotenv = "0.15.0"
 petgraph = "0.6.2"
+tui = "0.19"
+crossterm = "0.25"
