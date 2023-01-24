@@ -14,4 +14,4 @@ jobs:
         run: cargo build --release && cp ./target/release/multi_repo_orchestration_tool ./
 
       - name: run
-        run: multi_repo_orchestration_tool -n orchestration.yml
+        run: ./multi_repo_orchestration_tool -n orchestration.yml
