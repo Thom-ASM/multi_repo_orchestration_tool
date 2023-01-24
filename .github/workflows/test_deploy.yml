@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: build
-        run: cargo build && cp multi_repo_orchestration_tool ../../
+        run: cargo build -- release && cp ./target/release/multi_repo_orchestration_tool ./
 
       - name: run
         run: multi_repo_orchestration_tool -n orchestration.yml
