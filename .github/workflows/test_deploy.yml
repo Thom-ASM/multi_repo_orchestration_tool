@@ -1,14 +1,13 @@
 name: test-deploy
 run-name: test-deploy
 
-on:
-  workflow_dispatch:
+env:
+  GITHUB_PAT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   run-workflow:
     runs-on: ubuntu-latest
-    environment:
-      GITHUB_PAT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - uses: actions/checkout@v2
       - name: build
