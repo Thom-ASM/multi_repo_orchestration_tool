@@ -19,12 +19,11 @@ struct Body {
 
 #[derive(Deserialize, Debug)]
 struct GithubWorkflowResponse {
-    total_count: usize,
-    workflow_runs: Vec<workflowRun>,
+    workflow_runs: Vec<WorkflowRun>,
 }
 
 #[derive(Deserialize, Debug)]
-struct workflowRun {
+struct WorkflowRun {
     status: GithubWorkflowResponseStatus,
 }
 
@@ -42,17 +41,21 @@ enum GithubWorkflowResponseStatus {
     in_progress,
     queued,
     requested,
-    waiting,
+    Waiting,
+}
+
+pub enum PendingResponse {
+    RateLimit,
+    NonComplete,
 }
 
 pub enum PollResponse {
     Success,
     Failure(String),
-    Pending(String),
+    Pending(PendingResponse),
 }
 
 impl GithubWorkflow {
-    ///Create a new github workflow struct
     pub fn new(name: String, repo: String, owner: String, id: String) -> Self {
         GithubWorkflow {
             name,
@@ -77,12 +80,11 @@ impl GithubWorkflow {
             self.owner, self.repo, self.id
         );
 
-        //TODO: move user-agent in to config file
         let resp = http_client
             .post(url)
             .bearer_auth(std::env::var("GITHUB_PAT_TOKEN").unwrap())
             .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", "Sir-Martin-Esq-III")
+            .header("User-Agent", "MROT runner")
             .json(&body)
             .send()
             .await;
@@ -90,7 +92,6 @@ impl GithubWorkflow {
         match resp {
             Ok(resp) => {
                 let status = resp.status();
-                println!("{:?}", status);
                 match status {
                     StatusCode::NO_CONTENT => Ok(()),
                     _ => panic!(),
@@ -103,24 +104,27 @@ impl GithubWorkflow {
     async fn poll_workflow(&self, http_client: &Client) -> PollResponse {
         println!("Polling workflow {:?}...", self.name);
 
-        let t = format!(
-            "https://api.github.com/repos/{}/{}/actions/workflows/{}/runs",
-            self.owner, self.repo, self.id
-        );
-
-        println!("{:?}", t);
-
         let resp = http_client
             .get(format!(
                 "https://api.github.com/repos/{}/{}/actions/workflows/{}/runs",
                 self.owner, self.repo, self.id
             ))
-            .header("User-Agent", "Sir-Martin-Esq-III")
+            .header("User-Agent", "testrunner")
             .send()
             .await;
 
         match resp {
             Ok(resp) => {
+                if resp
+                    .headers()
+                    .get("x-ratelimit-remaining")
+                    .expect("Failed to find the remaining rate limit header")
+                    .as_bytes()
+                    == b"0"
+                {
+                    return PollResponse::Pending(PendingResponse::RateLimit);
+                }
+
                 let js = resp
                     .json::<GithubWorkflowResponse>()
                     .await
@@ -138,18 +142,12 @@ impl GithubWorkflow {
                     GithubWorkflowResponseStatus::cancelled => {
                         PollResponse::Failure(String::from("Workflow cancelled"))
                     }
-                    _ => {
-                        PollResponse::Pending(String::from(
-                            "Workflow still in progress waiting 10 seconds to try again",
-                        ))
-                    }
+                    _ => PollResponse::Pending(PendingResponse::NonComplete),
                 }
             }
 
             Err(_) => {
-                PollResponse::Failure(String::from(
-                    "Error trying to contact github api endpoint",
-                ))
+                PollResponse::Failure(String::from("Error trying to contact github api endpoint"))
             }
         }
     }
@@ -168,23 +166,36 @@ impl GithubWorkflow {
                     "Workflow runner for {:?} is still being created ",
                     self.name
                 );
-                sleep(Duration::from_secs(2)).await;
+                sleep(Duration::from_secs(20)).await;
             },
             Err(_) => todo!(),
         }
     }
 
     pub async fn poll_workflow_until_complete(&self, http_client: &Client) -> PollResponse {
-        let mut tries = 6;
+        let max_tries = 11;
+        let mut counter = 0;
+        let mut delay: u64 = 0x1;
 
-        while tries >= 0 {
+        while counter < max_tries {
             let poll_resp = self.poll_workflow(http_client).await;
 
-            if let PollResponse::Pending(_m) = poll_resp {
-                println!("Workflow {:?} is still pending...", self.name);
-                //TODO: move the sleep amount to the config file
-                sleep(Duration::from_secs(10)).await;
-                tries -= 1;
+            if let PollResponse::Pending(pending_resp) = poll_resp {
+                match pending_resp {
+                    PendingResponse::RateLimit => {
+                        //could check if the next tick will occour after the rate limit resets but for now,
+                        // we'll just panic
+                        panic!("Hit the github rate limit")
+                    }
+                    PendingResponse::NonComplete => {
+                        println!("Workflow {:?} is still pending...", self.name);
+                    }
+                }
+
+                delay = delay << 2;
+                println!("..will retry in {:?} seconds", delay);
+                sleep(Duration::from_secs(delay)).await;
+                counter += 1;
             } else {
                 return poll_resp;
             }
